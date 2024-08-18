@@ -1,23 +1,23 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
 	"fmt"
+	"github.com/pelletier/go-toml"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/shirou/gopsutil/process"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/shirou/gopsutil/process"
 )
 
 // Configuration struct to hold process names
 type Config struct {
-	Processes []string `json:"processes"`
+	Processes []string `toml:"processes"`
 }
 
 // Define metrics
@@ -36,6 +36,9 @@ var (
 		},
 		[]string{"process_name"},
 	)
+	// Variables for versioning
+	version   = "dev"
+	buildTime = "unknown"
 )
 
 func init() {
@@ -101,8 +104,8 @@ func loadConfig(filename string) (Config, error) {
 		return config, fmt.Errorf("failed to read config file: %v", err)
 	}
 
-	// Parse JSON config
-	err = json.Unmarshal(data, &config)
+	// Parse TOML config
+	err = toml.Unmarshal(data, &config)
 	if err != nil {
 		return config, fmt.Errorf("failed to parse config file: %v", err)
 	}
@@ -111,15 +114,20 @@ func loadConfig(filename string) (Config, error) {
 }
 
 func main() {
-	// Accept configuration file via command line arguments
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./exporter config.json")
-		os.Exit(1)
+	// Command-line flags
+	configFile := flag.String("c", "config.toml", "Path to the config file")
+	showVersion := flag.Bool("v", false, "Show version information")
+	flag.Parse()
+
+	// Show version info
+	if *showVersion {
+		fmt.Printf("Version: %s\n", version)
+		fmt.Printf("Build Time: %s\n", buildTime)
+		os.Exit(0)
 	}
-	configFile := os.Args[1]
 
 	// Load configuration
-	config, err := loadConfig(configFile)
+	config, err := loadConfig(*configFile)
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
