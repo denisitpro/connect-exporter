@@ -7,7 +7,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shirou/gopsutil/process"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -39,12 +38,23 @@ var (
 	// Variables for versioning
 	version   = "dev"
 	buildTime = "unknown"
+
+	// Variable for logging level
+	debug = false
 )
 
 func init() {
 	// Register metrics
 	prometheus.MustRegister(processConnections)
 	prometheus.MustRegister(processExists)
+}
+
+// Custom logging function to include timestamp
+func logRequest(r *http.Request) {
+	timestamp := time.Now().Format(time.RFC3339)
+	clientIP := r.RemoteAddr
+	requestedURI := r.RequestURI
+	log.Printf("DEBUG: [%s] Client IP: %s Requested URI: %s", timestamp, clientIP, requestedURI)
 }
 
 func getConnections(config Config) {
@@ -99,7 +109,7 @@ func loadConfig(filename string) (Config, error) {
 	var config Config
 
 	// Read config file
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return config, fmt.Errorf("failed to read config file: %v", err)
 	}
@@ -116,14 +126,25 @@ func loadConfig(filename string) (Config, error) {
 func main() {
 	// Command-line flags
 	configFile := flag.String("c", "config.toml", "Path to the config file")
-	showVersion := flag.Bool("v", false, "Show version information")
+	showVersion := flag.Bool("version", false, "Show version information")
+	enableDebug := flag.Bool("v2", false, "Enable debug logging")
 	flag.Parse()
+
+	// Enable debug logging if specified
+	debug = *enableDebug
 
 	// Show version info
 	if *showVersion {
 		fmt.Printf("Version: %s\n", version)
 		fmt.Printf("Build Time: %s\n", buildTime)
 		os.Exit(0)
+	}
+
+	// Check for remaining arguments after parsing
+	if len(flag.Args()) > 0 {
+		fmt.Println("Invalid argument:", flag.Args())
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	// Load configuration
@@ -138,8 +159,14 @@ func main() {
 		port = "9042"
 	}
 
-	// Start the Prometheus HTTP server
-	http.Handle("/metrics", promhttp.Handler())
+	// Start the Prometheus HTTP server with logging for all requests
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		if debug {
+			logRequest(r)
+		}
+		promhttp.Handler().ServeHTTP(w, r)
+	})
+
 	go func() {
 		log.Printf("Starting server on port %s...", port)
 		log.Fatal(http.ListenAndServe(":"+port, nil))
