@@ -38,6 +38,7 @@ var (
 	// Variables for versioning
 	version   = "dev"
 	buildTime = "unknown"
+	commitHash = "none" // New variable for commit hash
 
 	// Variable for logging level
 	debug = false
@@ -137,6 +138,7 @@ func main() {
 	if *showVersion {
 		fmt.Printf("Version: %s\n", version)
 		fmt.Printf("Build Time: %s\n", buildTime)
+		fmt.Printf("Commit Hash: %s\n", commitHash) // Display commit hash
 		os.Exit(0)
 	}
 
