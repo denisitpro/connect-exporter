@@ -18,7 +18,7 @@ import (
 
 // Configuration struct to hold process names, port, and address
 type Config struct {
-	Processes   []string `toml:"processes"`
+	Processes    []string `toml:"processes"`
 	ExporterPort string   `toml:"exporter_port"`
 	ExporterAddr string   `toml:"exporter_addr"`
 }
@@ -139,6 +139,14 @@ func updateMetrics(w http.ResponseWriter, r *http.Request) {
 	promhttp.Handler().ServeHTTP(w, r)
 }
 
+// Custom 404 handler to return the metrics URL in the response
+func custom404Handler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set("Content-Type", "text/plain")
+	metricsURL := fmt.Sprintf("http://%s:%s/metrics", config.ExporterAddr, config.ExporterPort)
+	w.Write([]byte(fmt.Sprintf("404 - Page not found. Please use the metrics endpoint: %s\n", metricsURL)))
+}
+
 // Function to check if address is IPv6
 func isIPv6(addr string) bool {
 	return strings.Contains(addr, ":") && !strings.Contains(addr, ".")
@@ -192,7 +200,10 @@ func main() {
 	// HTTP server for metrics
 	http.HandleFunc("/metrics", updateMetrics)
 
+	// Custom handler for 404 errors
+	http.HandleFunc("/", custom404Handler)
+
 	// Start HTTP server with proper address and port
-	log.Printf("Starting server at %s", fullAddr)
+	log.Printf("Starting server at %s/metrics", fullAddr)
 	log.Fatal(http.ListenAndServe(fullAddr, nil))
 }
