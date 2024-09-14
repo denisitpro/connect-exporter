@@ -16,9 +16,11 @@ import (
 	"time"
 )
 
-// Configuration struct to hold process names
+// Configuration struct to hold process names, port, and address
 type Config struct {
-	Processes []string `toml:"processes"`
+	Processes   []string `toml:"processes"`
+	ExporterPort string   `toml:"exporter_port"`
+	ExporterAddr string   `toml:"exporter_addr"`
 }
 
 // Define metrics for tracking connection states
@@ -32,7 +34,7 @@ var (
 	)
 )
 
-// Variables for versioning
+// Variables for versioning and configuration
 var (
 	version    = "dev"
 	buildTime  = "unknown"
@@ -96,7 +98,7 @@ func parseSSOutput(processName string) {
 
 // Helper function to convert string to float64 for Prometheus metrics
 func stringToFloat(s string) float64 {
-	value, err := strconv.ParseFloat(s, 64) // Use strconv.ParseFloat
+	value, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		log.Printf("Error converting string to float64: %v", err)
 		return 0
@@ -137,6 +139,11 @@ func updateMetrics(w http.ResponseWriter, r *http.Request) {
 	promhttp.Handler().ServeHTTP(w, r)
 }
 
+// Function to check if address is IPv6
+func isIPv6(addr string) bool {
+	return strings.Contains(addr, ":") && !strings.Contains(addr, ".")
+}
+
 func main() {
 	// Command-line flags
 	configFile := flag.String("c", "config.toml", "Path to the config file")
@@ -147,7 +154,7 @@ func main() {
 	// Enable debug logging if specified
 	debug = *enableDebug
 
-	// Show version info
+	// Show version info and exit
 	if *showVersion {
 		fmt.Printf("Version: %s\n", version)
 		fmt.Printf("Build Time: %s\n", buildTime)
@@ -162,13 +169,30 @@ func main() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
+	// Set default port and address if not provided in config
+	if config.ExporterPort == "" {
+		config.ExporterPort = "9042" // Default port
+	}
+	if config.ExporterAddr == "" {
+		config.ExporterAddr = "0.0.0.0" // Default to all interfaces
+	}
+
+	// If address is IPv6, wrap it in square brackets
+	addr := config.ExporterAddr
+	if isIPv6(config.ExporterAddr) {
+		addr = "[" + config.ExporterAddr + "]"
+	}
+
+	// Construct final address with port
+	fullAddr := addr + ":" + config.ExporterPort
+
 	// Register metrics
 	prometheus.MustRegister(connectionState)
 
 	// HTTP server for metrics
 	http.HandleFunc("/metrics", updateMetrics)
 
-	// Start HTTP server
-	log.Println("Starting server at :9042")
-	log.Fatal(http.ListenAndServe(":9042", nil))
+	// Start HTTP server with proper address and port
+	log.Printf("Starting server at %s", fullAddr)
+	log.Fatal(http.ListenAndServe(fullAddr, nil))
 }
