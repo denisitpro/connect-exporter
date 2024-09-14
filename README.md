@@ -1,7 +1,3 @@
-# Requmemts
-requments **ss**
-
-
 # Process Network Exporter
 
 `Process Network Exporter` — это простой инструмент для мониторинга сетевых подключений заданных процессов и экспорта метрик в Prometheus. Он позволяет отслеживать количество активных подключений для каждого процесса и их наличие, что упрощает интеграцию с вашей системой мониторинга.
@@ -21,7 +17,7 @@ requments **ss**
 go build -ldflags "-X main.version=1.0.0 -X main.buildTime=$(date -u '+%Y-%m-%dT%H:%M:%SZ') -X main.commitHash=$(git rev-parse --short HEAD)" -o process_net_exporter main.go
 ```
 
-### Использование Docker
+### Использование Docker - todo сделать
 
 Вы также можете запустить экспортер с использованием Docker. Готовый образ доступен в репозитории Docker Hub.
 
@@ -76,11 +72,8 @@ processes = ["nginx", "mysql", "redis"]
 
 Экспортер экспортирует следующие метрики:
 
-- `process_network_connections`: Количество активных сетевых подключений для указанных процессов с метками `process_name` и `state`.
-- `process_exists`: Показывает, запущен процесс (1) или нет (0), с меткой `process_name`.
+- `process_connections_state_total`: Количество активных сетевых подключений для указанных процессов с метками `process_name` и `state`.
 
 ## Лицензия
 
 Этот проект лицензирован по лицензии MIT.
-
----
