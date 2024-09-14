@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/pelletier/go-toml"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/shirou/gopsutil/process"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,7 +29,7 @@ var (
 			Name: "process_network_connections",
 			Help: "Number of active network connections for specified processes",
 		},
-		[]string{"process_name", "state"},
+		[]string{"process_name", "protocol", "state"},
 	)
 	processExists = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -36,13 +39,29 @@ var (
 		[]string{"process_name"},
 	)
 	// Variables for versioning
-	version   = "dev"
-	buildTime = "unknown"
-	commitHash = "none" // New variable for commit hash
+	version    = "dev"
+	buildTime  = "unknown"
+	commitHash = "none"
 
 	// Variable for logging level
 	debug = false
+	mu    sync.Mutex
+
+	// Config to store processes from config.toml
+	config Config
 )
+
+// Map of numerical protocol values to their string representations
+var protocolMap = map[string]string{
+	"0":   "ip",
+	"1":   "icmp",
+	"6":   "tcp",
+	"17":  "udp",
+	"41":  "ipv6",
+	"58":  "ipv6-icmp",
+	"132": "sctp",
+	"162": "ethernet-over-ip",
+}
 
 func init() {
 	// Register metrics
@@ -58,54 +77,92 @@ func logRequest(r *http.Request) {
 	log.Printf("DEBUG: [%s] Client IP: %s Requested URI: %s", timestamp, clientIP, requestedURI)
 }
 
-func getConnections(config Config) {
-	// Reset previous metrics
-	processConnections.Reset()
-	processExists.Reset()
-
-	// Get list of all processes
-	allProcs, err := process.Processes()
+// Function to run netstat and capture output
+func getNetstatOutput() (string, error) {
+	// Run the netstat command
+	cmd := exec.Command("netstat", "-tanup")
+	out, err := cmd.Output()
 	if err != nil {
-		log.Printf("Error fetching processes: %v", err)
+		return "", fmt.Errorf("failed to execute netstat: %v", err)
+	}
+
+	return string(out), nil
+}
+
+// Helper function to check if process name is in the config list
+func processInConfig(processName string) bool {
+	for _, pname := range config.Processes {
+		if strings.Contains(processName, pname) {
+			return true
+		}
+	}
+	return false
+}
+
+// Helper function to convert numerical protocol values to their string representations
+func convertProtocol(protocol string) string {
+	if protoName, found := protocolMap[protocol]; found {
+		return protoName
+	}
+	return protocol // Return the original if not found in the map
+}
+
+// Function to parse netstat output and update metrics
+func updateMetricsFromNetstat() {
+	// Get netstat output
+	output, err := getNetstatOutput()
+	if err != nil {
+		log.Printf("Error fetching netstat output: %v", err)
 		return
 	}
 
-	for _, proc := range allProcs {
-		name, err := proc.Name()
-		if err != nil {
+	// Process each line of the output
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	re := regexp.MustCompile(`(\S+)\s+(\S+):(\d+)\s+(\S+):(\d+)\s+(\S+)\s+(\d+)/(\S+)`)
+
+	// Reset previous metrics
+	processConnections.Reset()
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		matches := re.FindStringSubmatch(line)
+		if matches == nil {
 			continue
 		}
 
-		// Check if the process name matches any of the target processes
-		for _, pname := range config.Processes {
-			if strings.Contains(name, pname) {
-				// Mark process as running
-				processExists.WithLabelValues(pname).Set(1)
+		// Extract information from the matched line
+		protocol := matches[1]    // protocol number (e.g., 6 for TCP)
+		srcIP := matches[2]       // source IP
+		srcPort := matches[3]     // source port
+		destIP := matches[4]      // destination IP
+		destPort := matches[5]    // destination port
+		state := matches[6]       // connection state
+		pid := matches[7]         // process PID
+		processName := matches[8] // process name
 
-				conns, err := proc.Connections()
-				if err != nil {
-					log.Printf("Error fetching connections for process %s: %v", name, err)
-					continue
-				}
-
-				// Count connections by state
-				connStateCount := make(map[string]int)
-				for _, conn := range conns {
-					connStateCount[conn.Status]++
-				}
-
-				// Update metrics
-				for state, count := range connStateCount {
-					processConnections.WithLabelValues(pname, state).Set(float64(count))
-				}
-			} else {
-				// If process not found, set metric to 0
-				processExists.WithLabelValues(pname).Set(0)
-			}
+		// Check if process is in config
+		if !processInConfig(processName) {
+			continue // Skip if not in config
 		}
+
+		// Convert numerical protocol to string representation
+		protocol = convertProtocol(protocol)
+
+		// Log for debugging
+		if debug {
+			log.Printf("DEBUG: protocol=%s, src=%s:%s, dest=%s:%s, state=%s, process=%s (PID=%s)", protocol, srcIP, srcPort, destIP, destPort, state, processName, pid)
+		}
+
+		// Update Prometheus metrics
+		processConnections.WithLabelValues(processName, protocol, state).Inc()
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Error reading netstat output: %v", err)
 	}
 }
 
+// Load configuration from the given TOML file
 func loadConfig(filename string) (Config, error) {
 	var config Config
 
@@ -134,31 +191,19 @@ func main() {
 	// Enable debug logging if specified
 	debug = *enableDebug
 
-	// Show version info
-	if *showVersion {
-		fmt.Printf("Version: %s\n", version)
-		fmt.Printf("Build Time: %s\n", buildTime)
-		fmt.Printf("Commit Hash: %s\n", commitHash) // Display commit hash
-		os.Exit(0)
-	}
-
-	// Check for remaining arguments after parsing
-	if len(flag.Args()) > 0 {
-		fmt.Println("Invalid argument:", flag.Args())
-		flag.Usage()
-		os.Exit(1)
-	}
-
 	// Load configuration
-	config, err := loadConfig(*configFile)
+	var err error
+	config, err = loadConfig(*configFile)
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	// Get port from environment variable, default to 9042 if not set
-	port := os.Getenv("EXPORTER_PORT")
-	if port == "" {
-		port = "9042"
+	// Show version info
+	if *showVersion {
+		fmt.Printf("Version: %s\n", version)
+		fmt.Printf("Build Time: %s\n", buildTime)
+		fmt.Printf("Commit Hash: %s\n", commitHash)
+		os.Exit(0)
 	}
 
 	// Start the Prometheus HTTP server with logging for all requests
@@ -166,17 +211,13 @@ func main() {
 		if debug {
 			logRequest(r)
 		}
+
+		// Update metrics on each request
+		updateMetricsFromNetstat()
 		promhttp.Handler().ServeHTTP(w, r)
 	})
 
-	go func() {
-		log.Printf("Starting server on port %s...", port)
-		log.Fatal(http.ListenAndServe(":"+port, nil))
-	}()
-
-	// Periodically collect and update metrics
-	for {
-		getConnections(config)
-		time.Sleep(10 * time.Second)
-	}
+	port := "9042"
+	log.Printf("Starting server on port %s...", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
