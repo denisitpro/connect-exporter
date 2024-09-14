@@ -1,5 +1,6 @@
 # Requmemts
-need install **netstat**, example install `apt install net-tools`
+requments **ss**
+
 
 # Process Network Exporter
 
