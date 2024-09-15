@@ -67,4 +67,3 @@ jobs:
       - name: Send release notification
         if: success()
         run: echo "Release ${{ github.ref }} was created successfully!"
-}
