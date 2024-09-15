@@ -1,12 +1,9 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 name: build binary
 
 on:
   push:
 #    paths:
 #      - ci/version.txt
-#      - ci/dockerfile.ci
 #      - '**' # for debug
     tags:
       - '*'
@@ -70,20 +67,4 @@ jobs:
       - name: Send release notification
         if: success()
         run: echo "Release ${{ github.ref }} was created successfully!"
-
-#
-#
-#      - name: Build and push
-#        uses: docker/build-push-action@v6
-#        with:
-#          file: ./${{ matrix.ci_folder }}/${{ env.DOCKER_FILE }}
-#          push: true
-#          tags: |
-#            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
-#            ${{ env.DOCKER_REPO }}:latest
-#          build-args: |
-#            TIMESTAMP=${{ env.TIMESTAMP }}
-#            VERSION=${{ env.VERSION }}
-#            GIT_COMMIT_HASH=${{ env.GIT_COMMIT_HASH }}
-#            UBUNTU_IMAGE_VERSION=${{ env.UBUNTU_IMAGE_VERSION }}
-#            GO_IMAGE_VERSION=${{ env.GO_IMAGE_VERSION }}
+}

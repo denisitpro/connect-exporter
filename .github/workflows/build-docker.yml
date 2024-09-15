@@ -1,76 +1,76 @@
-## This workflow will build a golang project
-## For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-#name: build app
-#
-#on:
-#  push:
-##    paths:
-##      - ci/version.txt
-##      - ci/dockerfile.ci
-##      - '**' # for debug
-#    tags:
-#      - '*'
-#
-#
-#jobs:
-#  build:
-#    runs-on: ubuntu-latest
-#
-#    strategy:
-#      matrix:
-#        ci_folder: ['ci']
-#
-#    env:  # set global vas
-#      DOCKER_REPO: denisitpro/process-net-exporter
-#      DOCKER_FILE: dockerfile.ci
-#      UBUNTU_IMAGE_VERSION: "24.04"
-#      GO_IMAGE_VERSION: "1.23.1"
-#
-#    outputs:
-#      version: ${{ steps.vars.outputs.VERSION }}
-#
-#    steps:
-#      - name: Checkout repository
-#        uses: actions/checkout@v4
-#
-#      - name: Set up Docker Buildx
-#        uses: docker/setup-buildx-action@v3
-#
-#      - name: Extract version
-#        id: vars
-#        run: |
-#          cd ${{ matrix.ci_folder }}
-#          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
-#            echo "VERSION=$(git describe --tags)"
-#            echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
-#            echo "VERSION=$(git describe --tags)" >> $GITHUB_OUTPUT
-#          else
-#            echo "VERSION=$(cat version.txt)"
-#            echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
-#            echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
-#          fi
-#          echo "TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_ENV
-#          echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)"  >> $GITHUB_ENV
-#          echo GIT_COMMIT_HAS=$(git rev-parse --short HEAD)
-#
-#
-#      - name: Login to Docker Hub
-#        uses: docker/login-action@v3
-#        with:
-#          username: ${{ secrets.DOCKERHUB_USERNAME }}
-#          password: ${{ secrets.DOCKERHUB_TOKEN }}
-#
-#      - name: Build and push
-#        uses: docker/build-push-action@v6
-#        with:
-#          file: ./${{ matrix.ci_folder }}/${{ env.DOCKER_FILE }}
-#          push: true
-#          tags: |
-#            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
-#            ${{ env.DOCKER_REPO }}:latest
-#          build-args: |
-#            TIMESTAMP=${{ env.TIMESTAMP }}
-#            VERSION=${{ env.VERSION }}
-#            GIT_COMMIT_HASH=${{ env.GIT_COMMIT_HASH }}
-#            UBUNTU_IMAGE_VERSION=${{ env.UBUNTU_IMAGE_VERSION }}
-#            GO_IMAGE_VERSION=${{ env.GO_IMAGE_VERSION }}
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+name: build app
+
+on:
+  push:
+#    paths:
+#      - ci/version.txt
+#      - ci/dockerfile.ci
+#      - '**' # for debug
+    tags:
+      - '*'
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        ci_folder: ['ci']
+
+    env:  # set global vas
+      DOCKER_REPO: denisitpro/process-net-exporter
+      DOCKER_FILE: dockerfile.ci
+      UBUNTU_IMAGE_VERSION: "24.04"
+      GO_IMAGE_VERSION: "1.23.1"
+
+    outputs:
+      version: ${{ steps.vars.outputs.VERSION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract version
+        id: vars
+        run: |
+          cd ${{ matrix.ci_folder }}
+          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
+            echo "VERSION=$(git describe --tags)"
+            echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+            echo "VERSION=$(git describe --tags)" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(cat version.txt)"
+            echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
+            echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
+          fi
+          echo "TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)"  >> $GITHUB_ENV
+          echo GIT_COMMIT_HAS=$(git rev-parse --short HEAD)
+
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          file: ./${{ matrix.ci_folder }}/${{ env.DOCKER_FILE }}
+          push: true
+          tags: |
+            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
+            ${{ env.DOCKER_REPO }}:latest
+          build-args: |
+            TIMESTAMP=${{ env.TIMESTAMP }}
+            VERSION=${{ env.VERSION }}
+            GIT_COMMIT_HASH=${{ env.GIT_COMMIT_HASH }}
+            UBUNTU_IMAGE_VERSION=${{ env.UBUNTU_IMAGE_VERSION }}
+            GO_IMAGE_VERSION=${{ env.GO_IMAGE_VERSION }}
