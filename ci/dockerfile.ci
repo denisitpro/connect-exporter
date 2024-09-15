@@ -1,0 +1,41 @@
+ARG GO_IMAGE_VERSION="1.23.1"
+ARG UBUNTU_IMAGE_VERSION="24.04"
+FROM golang:${GO_IMAGE_VERSION}  AS builder
+
+ARG VERSION
+ARG TIMESTAMP
+ARG GIT_COMMIT_HASH
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ENV VERSION=$VERSION \
+    BUILD_TIMESTAMP=$TIMESTAMP \
+    GIT_COMMIT_HASH=$GIT_COMMIT_HASH
+
+RUN go build -ldflags="-X main.version=$VERSION -X main.buildTime=$BUILD_TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o /app/process-net-exporter .
+
+
+# Stage 2: Run
+FROM ubuntu:${UBUNTU_IMAGE_VERSION}
+
+WORKDIR /app
+COPY --from=builder /app/process-net-exporter .
+
+ARG TIMESTAMP
+ARG VERSION
+ARG GIT_COMMIT_HASH
+
+RUN echo "version: ${VERSION}" > version.txt && \
+    echo "timestamp: ${TIMESTAMP}" >> version.txt && \
+    echo "commitHash: ${GIT_COMMIT_HASH}" >> version.txt
+
+LABEL timestamp="${TIMESTAMP}"
+LABEL version="${VERSION}"
+LABEL version="${GIT_COMMIT_HASH}"
+
+EXPOSE 9042
+CMD ["/app/process-net-exporter"]
