@@ -1,0 +1,39 @@
+# .slsa-goreleaser.yml
+version: 1.0
+
+builds:
+  - id: process-net-exporter
+    goos: linux
+    goarch: amd64
+    main: ./ # Указываем путь к основному файлу (предположительно в корне)
+    ldflags:
+      - "-X main.version={{ .Version }} -X main.buildTime={{ .Timestamp }} -X main.commitHash={{ .GitCommit }}"
+    binary: process-net-exporter
+
+artifacts:
+  - name: process-net-exporter-docker-image
+    type: docker
+    path: ./Dockerfile
+    image_name: process-net-exporter
+    goos: linux
+    goarch: amd64
+    args:
+      GO_IMAGE_VERSION: "1.23.1"
+      UBUNTU_IMAGE_VERSION: "24.04"
+      VERSION: "{{ .Version }}"
+      TIMESTAMP: "{{ .Timestamp }}"
+      GIT_COMMIT_HASH: "{{ .GitCommit }}"
+    labels:
+      version: "{{ .Version }}"
+      timestamp: "{{ .Timestamp }}"
+      commitHash: "{{ .GitCommit }}"
+
+release:
+  github:
+    name_template: "process-net-exporter-{{ .Version }}"
+
+# Metadata that will be included in the provenance file
+metadata:
+  version: "{{ .Version }}"
+  timestamp: "{{ .Timestamp }}"
+  commit_hash: "{{ .GitCommit }}"
