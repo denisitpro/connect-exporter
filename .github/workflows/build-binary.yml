@@ -1,0 +1,69 @@
+name: build binary
+
+on:
+  push:
+#    paths:
+#      - ci/version.txt
+#      - '**' # for debug
+    tags:
+      - '*'
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ci_folder: ['ci']
+
+    env:  # set global vas
+      UBUNTU_IMAGE_VERSION: "24.04"
+      GO_IMAGE_VERSION: "1.23.1"
+
+    outputs:
+      version: ${{ steps.vars.outputs.VERSION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: vars
+        run: |
+          cd ${{ matrix.ci_folder }}
+          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then            
+            echo "VERSION=$(git describe --tags)"
+            echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+            echo "VERSION=$(git describe --tags)" >> $GITHUB_OUTPUT
+          else            
+            echo "VERSION=$(cat version.txt)"
+            echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
+            echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
+          fi
+          echo "TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)"  >> $GITHUB_ENV
+          echo GIT_COMMIT_HAS=$(git rev-parse --short HEAD)
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "${{ env.GO_IMAGE_VERSION }}"
+
+      - name: Build
+        run: go build -ldflags="-X main.version=$VERSION -X main.buildTime=$TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o process-net-exporter-${{ env.VERSION }} .
+
+      - name: Check version info
+        run: |
+          ./process-net-exporter-${{ env.VERSION }} --version
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: process-net-exporter-${{ env.VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send release notification
+        if: success()
+        run: echo "Release ${{ github.ref }} was created successfully!"

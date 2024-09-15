@@ -1,6 +1,6 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-name: build app
+name: build docker
 
 on:
   push:
@@ -40,11 +40,11 @@ jobs:
         id: vars
         run: |
           cd ${{ matrix.ci_folder }}
-          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then            
+          if [[ "${{ github.ref }}" == "refs/tags/"* ]]; then
             echo "VERSION=$(git describe --tags)"
             echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
             echo "VERSION=$(git describe --tags)" >> $GITHUB_OUTPUT
-          else            
+          else
             echo "VERSION=$(cat version.txt)"
             echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
             echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT

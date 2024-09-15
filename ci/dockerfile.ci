@@ -13,10 +13,10 @@ RUN go mod download
 COPY . .
 
 ENV VERSION=$VERSION \
-    BUILD_TIMESTAMP=$TIMESTAMP \
+    TIMESTAMP=$TIMESTAMP \
     GIT_COMMIT_HASH=$GIT_COMMIT_HASH
 
-RUN go build -ldflags="-X main.version=$VERSION -X main.buildTime=$BUILD_TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o /app/process-net-exporter .
+RUN go build -ldflags="-X main.version=$VERSION -X main.buildTime=$TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o /app/process-net-exporter .
 
 
 # Stage 2: Run
