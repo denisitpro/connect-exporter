@@ -53,11 +53,23 @@ jobs:
           go-version: "${{ env.GO_IMAGE_VERSION }}"
 
       - name: Build
-        run: go build -ldflags="-X main.version=$VERSION -X main.buildTime=$BUILD_TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o process-net-exporter .
+        run: go build -ldflags="-X main.version=$VERSION -X main.buildTime=$TIMESTAMP -X main.commitHash=$GIT_COMMIT_HASH" -o process-net-exporter-${{ env.GO_IMAGE_VERSION }} .
 
       - name: Check version info
         run: |
-          ./process-net-exporter --version
+          ./process-net-exporter-${{ env.GO_IMAGE_VERSION }} --version
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: process-net-exporter-${{ env.GO_IMAGE_VERSION }}
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send release notification
+        if: success()
+        run: echo "Release ${{ github.ref }} was created successfully!"
 
 #
 #
