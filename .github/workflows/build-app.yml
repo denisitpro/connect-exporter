@@ -52,25 +52,25 @@ jobs:
           echo "TIMESTAMP=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_ENV
           echo "GIT_COMMIT_HASH=$(git rev-parse --short HEAD)"  >> $GITHUB_ENV
           echo GIT_COMMIT_HAS=$(git rev-parse --short HEAD)
-#
-#
-#      - name: Login to Docker Hub
-#        uses: docker/login-action@v3
-#        with:
-#          username: ${{ secrets.DOCKERHUB_USERNAME }}
-#          password: ${{ secrets.DOCKERHUB_TOKEN }}
-#
-#      - name: Build and push
-#        uses: docker/build-push-action@v6
-#        with:
-#          file: ./${{ matrix.ci_folder }}/${{ env.DOCKER_FILE }}
-#          push: true
-#          tags: |
-#            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
-#            ${{ env.DOCKER_REPO }}:latest
-#          build-args: |
-#            TIMESTAMP=${{ env.TIMESTAMP }}
-#            VERSION=${{ env.VERSION }}
-#            GIT_COMMIT_HASH=${{ env.GIT_COMMIT_HASH }}
-#            UBUNTU_IMAGE_VERSION=${{ env.UBUNTU_IMAGE_VERSION }}
-#            GO_IMAGE_VERSION=${{ env.GO_IMAGE_VERSION }}
+
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          file: ./${{ matrix.ci_folder }}/${{ env.DOCKER_FILE }}
+          push: true
+          tags: |
+            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
+            ${{ env.DOCKER_REPO }}:latest
+          build-args: |
+            TIMESTAMP=${{ env.TIMESTAMP }}
+            VERSION=${{ env.VERSION }}
+            GIT_COMMIT_HASH=${{ env.GIT_COMMIT_HASH }}
+            UBUNTU_IMAGE_VERSION=${{ env.UBUNTU_IMAGE_VERSION }}
+            GO_IMAGE_VERSION=${{ env.GO_IMAGE_VERSION }}
