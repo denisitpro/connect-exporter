@@ -4,12 +4,12 @@ name: build app
 
 on:
   push:
-    paths:
-      - ci/version.txt
-      - ci/dockerfile.ci
+#    paths:
+#      - ci/version.txt
+#      - ci/dockerfile.ci
 #      - '**' # for debug
-#    tags:
-#      - '*'
+    tags:
+      - '*'
 
 
 jobs:
